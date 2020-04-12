@@ -22,11 +22,50 @@ Today's class will be based on [Chapter 12: "Multiple Regression"](https://david
 
 **Prompt:** Recall the model we made in Scene 4: : `earnings` as a function of `sat` and `faculty`. Use that model to make a prediction. Consider a school with average faculty salary of $50,000 and average SAT of 1200. What would the school's median earnings be 10 years from now? Although there are fancier ways of doing this in R --- check out the `predict()` function --- you should use the simple approach of using the regression estimates and then plugging in the appropriate values.
 
+```{r scene 7, echo=FALSE}
+
+model1 <- lm(earnings ~sat + faculty, data = x)
+
+model1_tidy <- lm(earnings ~sat + faculty, data = x) %>%
+  tidy()
+
+model1
+
+q1 <- -2590.9829154 + 24.4804028 * 1200 + 0.3853723 * 50000
+
+q1
+
+expected_earnings <- function(sat, faculty){
+  -2590.9829154 + 24.4804028 * sat + 0.3853723 * faculty
+}
+
+expected_earnings(1200, 50000)
+
+predict(model1, tibble(sat = 1200, faculty = 50000))
+
+model1
+```
+
 
 ### Scene 8
 
 **Prompt:** Now that we have our regression model using two numerical explanatory variables, let's find the fitted values and residuals for the model using `augment()`. What do the fitted values and residuals mean, in terms of where they appear in a fitted line graph? Take a look at the biggest residuals, both positive and negative. What causes them? What is the model missing? How might we improve the model?
 
+```{r scene 8, echo=FALSE}
+
+model1 %>%
+  augment() %>%
+  arrange(.resid) %>%
+  left_join(x, by = c("earnings","faculty")) %>%
+  select(name, earnings, .resid)
+
+augment(model1,
+        data = x) %>%
+  select(name, earnings, .resid) %>%
+  arrange(.resid) 
+```
+
+- Residual: difference between actual value and fitted value
 
 ### Scene 9
 
@@ -34,12 +73,36 @@ Today's class will be based on [Chapter 12: "Multiple Regression"](https://david
 
 First, fit the interaction regression model using the `lm()`. Then, retrieve the regression estimates, including the upper and lower bounds for the confidence intervals. Interpret the meaning of each of the estimates.
 
+```{r scene 9, echo=FALSE}
+
+lm(earnings ~ public + price + public * price, data = x) %>%
+  tidy(conf.int = TRUE)
+
+```
+
 
 ### Scene 10
 
 **Prompt:** In the previous scene, we generated the confidence intervals using `tidy(conf.int = TRUE)` (if you haven't, go back and do so now). Let's check those confidence intervals by doing our own bootstrapping. Set `reps = 100` to save processing time. Hints: `unnest()`, `group_by()`, and `summarize()` are useful here.
 
 How do the confidence intervals from bootstrapping compare to the ones we found in the previous scene? Provide a one sentence Bayesian interpretation and a one sentence Frequentist interpretation.
+
+```{r scene 10, echo=FALSE}
+set.seed(5)
+
+x %>%
+  rep_sample_n(size = nrow(.), reps = 3, replace = TRUE) %>%
+  group_by(replicate) %>%
+  nest() %>%
+  mutate(mod = map(data, ~lm(earnings ~ price * public, data =.)),
+         reg_results = map(mod, ~tidy(.))) %>%
+  unnest(reg_results) %>%
+  group_by(term) %>%
+  summarize(conf.low = quantile(estimate, 0.025),
+            perc.50 = quantile(estimate, 0.5),
+            conf.high = quantile(estimate, 0.975))
+
+```
 
 
 ### Scene 11
